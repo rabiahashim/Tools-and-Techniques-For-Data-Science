@@ -28,7 +28,7 @@ def make_investment_decision(beta):
 
 # Streamlit app
 def main():
-    st.title("Market Risk Analysis and Stock Forecasting App")
+    st.title("Market Risk Analysis App")
 
     # User input for stock symbols
     symbols = st.text_input("Enter multiple stock symbols separated by commas (e.g., AAPL,GOOGL,MSFT):").split(',')
