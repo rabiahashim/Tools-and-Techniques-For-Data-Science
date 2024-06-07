@@ -1,4 +1,3 @@
-# Import necessary libraries
 import streamlit as st
 from pandas_datareader import wb
 from datetime import datetime
@@ -28,56 +27,49 @@ def make_investment_decision(beta):
 
 # Streamlit app
 def main():
-    st.title("Market Risk Analysis App")
+    st.title("Market Risk Analysis and Stock Forecasting App")
 
     # User input for stock symbols
     symbols = st.text_input("Enter multiple stock symbols separated by commas (e.g., AAPL,GOOGL,MSFT):").split(',')
 
     # User input for date range
     start_date = st.date_input("Enter start date:")
-    end_date = st.date_input("Enter end date:")
+    end_date = st.date_input("Enter end date:", value=datetime.today())
 
-    # Fetch stock data
-    stocks_data = get_stock_data(symbols, start_date, end_date)
+    if st.button('Fetch Data'):
+        if start_date > end_date:
+            st.error("Start date must be before end date.")
+        elif not symbols or all(symbol.strip() == '' for symbol in symbols):
+            st.error("Please enter at least one valid stock symbol.")
+        else:
+            # Fetch stock data
+            stocks_data = get_stock_data(symbols, start_date, end_date)
 
-    # Display stock data
-    st.header("Stock Data")
-    #st.write(stocks_data.head())
-    st.dataframe(stocks_data.head())
+            # Display stock data
+            st.header("Stock Data")
+            st.dataframe(stocks_data.head())
 
-    # Calculate beta and make investment decisions
-    st.header("Investment Decisions")
+            # Calculate beta and make investment decisions
+            st.header("Investment Decisions")
+            print(stocks_data.columns)
+            for symbol in symbols:
+                symbol = symbol.strip()
+                if symbol and symbol in stocks_data.columns:
+                    stock_returns = stocks_data[symbol].pct_change().dropna()
+                    market_returns = yf.download('^GSPC', start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
 
-    # Check if symbols are provided and contain at least one non-empty symbol
-    if symbols and any(symbol.strip() for symbol in symbols):
-        for symbol in symbols:
-            # Skip empty or whitespace-only symbols
-            if not symbol.strip():
-                continue
+                    # Merge and align DataFrames based on date index
+                    df = pd.merge(stock_returns, market_returns, how='inner', left_index=True, right_index=True)
+                    stock_returns_aligned = df.iloc[:, 0]
+                    market_returns_aligned = df.iloc[:, 1]
 
-            # Check if the symbol is present in the stocks_data DataFrame
-            if symbol in stocks_data.columns:
-                stock_returns = stocks_data[symbol].pct_change().dropna()
-                market_returns = yf.download('^GSPC', start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
+                    beta = calculate_beta(stock_returns_aligned, market_returns_aligned)
+                    decision = make_investment_decision(beta)
 
-                # Merge and align DataFrames based on date index
-                df = pd.merge(stock_returns, market_returns, how='inner', left_index=True, right_index=True)
-                # st.write(df.head())
-
-                stock_symbols = symbol
-                stock_returns_up = df[stock_symbols]
-                market_returns_up = df['Adj Close']
-                # st.write(stock_returns_up)
-
-                beta = calculate_beta(stock_returns_up, market_returns_up)
-                decision = make_investment_decision(beta)
-
-                st.write(f"For {symbol}, Beta: {beta:.4f}")
-                st.write(f"Investment Decision: {decision}")
-            else:
-                st.warning(f"Stock symbol '{symbol}' not found in the dataset.")
-    else:
-        st.write("Please enter valid stock indices to view betas")
+                    st.write(f"For {symbol}, Beta: {beta:.4f}")
+                    st.write(f"Investment Decision: {decision}")
+                else:
+                    st.warning(f"Stock symbol '{symbol}' not found in the dataset.")
 
 if __name__ == "__main__":
     main()
